@@ -1,0 +1,71 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  background: #f5f7fa;
+  color: #303133;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 16px 60px;
+}
+
+.card-hover {
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 28px 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-title::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 20px;
+  border-radius: 2px;
+  background: #409eff;
+}
+
+.text-muted {
+  color: #909399;
+}
+
+.price {
+  color: #f56c6c;
+  font-weight: 700;
+}
+
+.markdown-content {
+  line-height: 1.9;
+  font-size: 15px;
+}
+
+.markdown-content h3 {
+  margin-top: 20px;
+}
+
+.el-card {
+  border-radius: 10px;
+}

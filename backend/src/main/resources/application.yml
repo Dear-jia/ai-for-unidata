@@ -1,0 +1,35 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: uni-data
+  datasource:
+    url: jdbc:h2:file:./data/unidata;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+
+app:
+  jwt:
+    # 生产环境务必通过环境变量 JWT_SECRET 覆盖，长度至少 32 字节
+    secret: ${JWT_SECRET:uni-data-dev-secret-key-change-me-in-production-2026}
+    expire-hours: 72
+
+logging:
+  level:
+    org.hibernate.SQL: warn
