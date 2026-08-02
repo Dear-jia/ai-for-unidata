@@ -105,8 +105,6 @@ public class PublicService {
         boolean vip = currentUserIsVip();
         List<ScoreLine> lines = scoreLineRepository.findBySchoolIdOrderByYearDesc(id);
         boolean hasRealLines = lines.stream().anyMatch(l -> "复试线".equals(l.getLineType()));
-        boolean hasNationalReference = lines.stream().anyMatch(l ->
-                "国家线".equals(l.getLineType()) && l.getMajor() != null && l.getMajor().contains("计算机相关学科"));
         List<ScoreLineView> views = lines.stream()
                 .map(s -> ScoreLineView.from(s, vip))
                 .toList();
@@ -114,10 +112,90 @@ public class PublicService {
         detail.put("school", school);
         detail.put("scoreLines", views);
         detail.put("hasRealLines", hasRealLines);
-        detail.put("hasNationalReference", hasNationalReference);
+        detail.put("engineeringSubjects", buildEngineeringSubjects(lines));
         detail.put("years", scoreLineRepository.findDistinctYears());
         detail.put("scoreSources", scoreSourceRepository.findBySchoolIdOrderByYearDescSortAsc(id));
         return detail;
+    }
+
+    /** 工学门类（08 代码）一级学科清单：0800 门类 + 38 个一级学科 */
+    private static final String[][] ENGINEERING_SUBJECTS = {
+            {"0800", "工学门类"},
+            {"0801", "力学"},
+            {"0802", "机械工程"},
+            {"0803", "光学工程"},
+            {"0804", "仪器科学与技术"},
+            {"0805", "材料科学与工程"},
+            {"0806", "冶金工程"},
+            {"0807", "动力工程及工程热物理"},
+            {"0808", "电气工程"},
+            {"0809", "电子科学与技术"},
+            {"0810", "信息与通信工程"},
+            {"0811", "控制科学与工程"},
+            {"0812", "计算机科学与技术"},
+            {"0813", "建筑学"},
+            {"0814", "土木工程"},
+            {"0815", "水利工程"},
+            {"0816", "测绘科学与技术"},
+            {"0817", "化学工程与技术"},
+            {"0818", "地质资源与地质工程"},
+            {"0819", "矿业工程"},
+            {"0820", "石油与天然气工程"},
+            {"0821", "纺织科学与工程"},
+            {"0822", "轻工技术与工程"},
+            {"0823", "交通运输工程"},
+            {"0824", "船舶与海洋工程"},
+            {"0825", "航空宇航科学与技术"},
+            {"0826", "兵器科学与技术"},
+            {"0827", "核科学与技术"},
+            {"0828", "农业工程"},
+            {"0829", "林业工程"},
+            {"0830", "环境科学与工程"},
+            {"0831", "生物医学工程"},
+            {"0832", "食品科学与工程"},
+            {"0833", "城乡规划学"},
+            {"0835", "软件工程"},
+            {"0836", "生物工程"},
+            {"0837", "安全科学与工程"},
+            {"0838", "公安技术"},
+            {"0839", "网络空间安全"},
+    };
+
+    /** 组装"工学一级学科覆盖情况"：每项列出 2025/2026 是否有该校真实复试线记录 */
+    private List<Map<String, Object>> buildEngineeringSubjects(List<ScoreLine> lines) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (String[] s : ENGINEERING_SUBJECTS) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("code", s[0]);
+            item.put("name", s[1]);
+            Map<Integer, ScoreLineView> byYear = new HashMap<>();
+            for (ScoreLine l : lines) {
+                if (!"复试线".equals(l.getLineType()) || l.getYear() == null) {
+                    continue;
+                }
+                if (subjectMatches(l.getMajor(), s[0], s[1])) {
+                    byYear.putIfAbsent(l.getYear(), ScoreLineView.from(l, true));
+                }
+            }
+            item.put("lines", byYear);
+            result.add(item);
+        }
+        return result;
+    }
+
+    private boolean subjectMatches(String major, String code, String name) {
+        if (major == null) {
+            return false;
+        }
+        if ("0800".equals(code)) {
+            return major.contains("工学") || major.contains("其他学科专业");
+        }
+        if (major.contains(code)) {
+            return true;
+        }
+        String kw = name.replace("科学与技术", "").replace("工程及工程热物理", "工程")
+                .replace("石油与天然气", "油气").replace("地质资源与地质", "地质");
+        return major.contains(kw);
     }
 
     public List<NationalLine> nationalLines(Integer year) {

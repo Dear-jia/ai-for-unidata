@@ -48,51 +48,53 @@
 
       <div class="section-title" style="font-size: 18px">历年复试分数线</div>
       <el-alert v-if="hasRealLines" type="success" :closable="false" show-icon style="margin-bottom: 14px"
-        title="已收录该校单独复试线；页面同时提供工学门类（08 代码）一级学科国家线参考，请以官方公布为准" />
+        title="已收录该校真实复试线（来源：研招网公开信息），未收录的一级学科显示「暂无数据」" />
       <el-alert v-else type="info" :closable="false" show-icon style="margin-bottom: 14px"
-        title="该校单独复试线暂未收录，以下为工学门类（08 代码）一级学科国家线参考（计算机科学与技术、软件工程、电子信息等），具体以该校官方公布为准" />
-      <el-table :data="scoreLines" border stripe>
+        title="该校真实复试线暂未收录，以下工学门类（08 代码）一级学科均显示「暂无数据」，具体以该校官方公布为准" />
+
+      <el-table v-if="scoreLines.length > 0" :data="scoreLines" border stripe style="margin-bottom: 20px">
         <el-table-column prop="year" label="年份" width="80" />
-        <el-table-column label="专业" min-width="170">
-          <template #default="{ row }">
-            <span>{{ row.major }}</span>
-            <el-tag v-if="row.lineType === '国家线'" size="small" type="success" style="margin-left: 6px">国家线参考</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="线类型" width="90">
-          <template #default="{ row }">
-            <el-tag size="small" :type="row.lineType === '国家线' ? 'success' : 'primary'" effect="plain">
-              {{ row.lineType }}
-            </el-tag>
-          </template>
-        </el-table-column>
+        <el-table-column prop="major" label="专业" min-width="220" />
+        <el-table-column prop="lineType" label="线类型" width="90" />
         <el-table-column label="总分" width="100">
           <template #default="{ row }">
             <span v-if="!row.locked" class="score-num">{{ row.minScore }}</span>
             <el-tag v-else type="warning" size="small">会员专享</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="政治" width="80">
-          <template #default="{ row }">
-            <span v-if="!row.locked">{{ row.politicalScore }}</span>
-            <span v-else class="text-muted">***</span>
-          </template>
+        <el-table-column label="政治" width="70">
+          <template #default="{ row }">{{ row.locked ? '***' : row.politicalScore }}</template>
         </el-table-column>
-        <el-table-column label="外语" width="80">
-          <template #default="{ row }">
-            <span v-if="!row.locked">{{ row.foreignScore }}</span>
-            <span v-else class="text-muted">***</span>
-          </template>
+        <el-table-column label="外语" width="70">
+          <template #default="{ row }">{{ row.locked ? '***' : row.foreignScore }}</template>
         </el-table-column>
-        <el-table-column label="业务课" min-width="120">
-          <template #default="{ row }">
-            <span v-if="!row.locked">{{ row.majorScore1 }} / {{ row.majorScore2 }}</span>
-            <span v-else class="text-muted">***</span>
-          </template>
+        <el-table-column label="业务课" min-width="100">
+          <template #default="{ row }">{{ row.locked ? '***' : `${row.majorScore1 ?? '-'} / ${row.majorScore2 ?? '-'}` }}</template>
         </el-table-column>
-        <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="remark" label="备注" min-width="160" show-overflow-tooltip />
       </el-table>
-      <el-empty v-if="scoreLines.length === 0" description="暂无分数线数据" />
+
+      <div class="section-title" style="font-size: 16px; margin-top: 8px">
+        工学门类（08 代码）一级学科复试线覆盖情况
+        <span class="text-muted" style="font-size: 13px; font-weight: 400">仅展示该校已公布的真实复试线，查不到的专业显示「暂无数据」</span>
+      </div>
+      <el-table :data="engineeringSubjects" border stripe>
+        <el-table-column prop="code" label="代码" width="80" align="center" />
+        <el-table-column prop="name" label="一级学科" min-width="180" />
+        <el-table-column label="2026 年" min-width="130" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.lines[2026]" type="success" size="small">已收录</el-tag>
+            <span v-else class="text-muted">暂无数据</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="2025 年" min-width="130" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.lines[2025]" type="success" size="small">已收录</el-tag>
+            <span v-else class="text-muted">暂无数据</span>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="engineeringSubjects.length === 0" description="暂无数据" />
     </el-card>
   </div>
 </template>
@@ -109,6 +111,7 @@ const school = ref(null)
 const scoreLines = ref([])
 const scoreSources = ref([])
 const hasRealLines = ref(false)
+const engineeringSubjects = ref([])
 
 const sourceYears = computed(() => [...new Set(scoreSources.value.map((s) => s.year))].sort((a, b) => b - a))
 
@@ -118,6 +121,7 @@ onMounted(async () => {
   scoreLines.value = data.scoreLines
   scoreSources.value = data.scoreSources || []
   hasRealLines.value = data.hasRealLines || false
+  engineeringSubjects.value = data.engineeringSubjects || []
 })
 
 function openUrl(url) {
