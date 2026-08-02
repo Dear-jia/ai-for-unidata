@@ -12,4 +12,6 @@ public interface ScoreSourceRepository extends JpaRepository<ScoreSource, Long> 
 
     @Query("select distinct s.schoolId from ScoreSource s")
     List<Long> findDistinctSchoolIds();
+
+    void deleteBySchoolId(Long schoolId);
 }

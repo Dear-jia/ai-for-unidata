@@ -75,6 +75,7 @@ public class DataSeeder implements CommandLineRunner {
         makeAllScoreLinesFree();
         removeOldScoreLines();
         removeNationalReferenceData();
+        removeNonDoubleFirstSchools();
         seedUsers();
         seedSchoolsFromCsv();
         seedSchoolTextLines();
@@ -121,6 +122,24 @@ public class DataSeeder implements CommandLineRunner {
         }
     }
 
+    /** 院校库仅保留双一流及以上：删除其他院校及其分数线、官方来源（幂等） */
+    private void removeNonDoubleFirstSchools() {
+        List<School> all = schoolRepository.findAll();
+        List<School> toDelete = all.stream()
+                .filter(s -> s.getLevel() == null || !s.getLevel().contains("双一流"))
+                .toList();
+        if (toDelete.isEmpty()) {
+            return;
+        }
+        for (School s : toDelete) {
+            scoreLineRepository.deleteBySchoolId(s.getId());
+            scoreSourceRepository.deleteBySchoolId(s.getId());
+            schoolRepository.delete(s);
+        }
+        log.info("已删除非双一流院校 {} 所（含其分数线与官方来源），当前院校 {} 所",
+                toDelete.size(), schoolRepository.count());
+    }
+
     private void seedUsers() {
         if (userRepository.count() > 0) {
             return;
@@ -144,7 +163,7 @@ public class DataSeeder implements CommandLineRunner {
     // ---------- 学校库（939 所招生单位，来自研招网院校库） ----------
 
     private void seedSchoolsFromCsv() {
-        if (schoolRepository.count() >= 900) {
+        if (schoolRepository.count() >= 100) {
             log.info("院校数据已存在（{} 所），跳过导入", schoolRepository.count());
             return;
         }

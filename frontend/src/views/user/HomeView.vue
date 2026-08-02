@@ -4,7 +4,7 @@
     <section class="hero">
       <div class="hero-inner">
         <h1>考研择校，数据先行</h1>
-        <p>覆盖全国 900+ 所研究生招生单位，查询各院校工学门类（08 代码）一级学科真实复试线</p>
+        <p>覆盖全国 148 所双一流建设高校，查询各院校工学门类（08 代码）一级学科真实复试线</p>
         <div class="hero-actions">
           <el-button type="primary" size="large" round @click="$router.push('/scores')">查询分数线</el-button>
           <el-button size="large" round plain @click="$router.push('/schools')">浏览院校库</el-button>

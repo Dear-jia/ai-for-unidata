@@ -26,6 +26,8 @@ public interface ScoreLineRepository extends JpaRepository<ScoreLine, Long> {
 
     long deleteByYearLessThan(Integer year);
 
+    void deleteBySchoolId(Long schoolId);
+
     long deleteByLineTypeAndMajor(String lineType, String major);
 
     long deleteByLineTypeAndRemarkContaining(String lineType, String remark);
