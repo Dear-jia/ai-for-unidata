@@ -126,7 +126,7 @@ function openCreate() {
   Object.assign(form, {
     schoolId: null, year: new Date().getFullYear(), major: '', lineType: '复试线',
     minScore: 350, politicalScore: 55, foreignScore: 55, majorScore1: 90, majorScore2: 90,
-    remark: '', premium: true
+    remark: '', premium: false
   })
   dialogVisible.value = true
 }

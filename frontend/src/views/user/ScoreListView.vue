@@ -48,11 +48,8 @@
           <el-button type="primary" @click="search">查询</el-button>
         </el-form-item>
       </el-form>
-      <el-alert v-if="!auth.isVip" type="warning" :closable="false" show-icon style="margin-bottom: 14px">
-        <template #title>
-          会员可查看全部历年分数数据，<el-link type="primary" @click="$router.push('/member')">立即开通</el-link>
-        </template>
-      </el-alert>
+      <el-alert type="success" :closable="false" show-icon style="margin-bottom: 14px"
+        title="全站分数线数据当前免费开放，会员特权功能开发中" />
     </el-card>
 
     <!-- 国家线表格 -->
@@ -126,9 +123,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { publicApi } from '../../api'
-import { useAuthStore } from '../../stores/auth'
 
-const auth = useAuthStore()
 const mode = ref('school')
 const query = reactive({ schoolId: null, year: null, major: '', page: 1, size: 15 })
 const list = ref([])

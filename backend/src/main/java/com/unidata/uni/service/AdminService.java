@@ -166,7 +166,7 @@ public class AdminService {
             throw new BizException("请填写专业");
         }
         if (line.getPremium() == null) {
-            line.setPremium(true);
+            line.setPremium(false);
         }
         return scoreLineRepository.save(line);
     }

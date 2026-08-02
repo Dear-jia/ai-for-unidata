@@ -5,7 +5,7 @@
         <el-icon :size="30" color="#409eff"><DataLine /></el-icon>
         <h2>研数 UniData</h2>
       </div>
-      <p class="text-muted auth-sub">登录后查看会员专享历年分数线数据</p>
+        <p class="text-muted auth-sub">全站分数线数据当前免费开放，登录后可收藏与管理个人数据</p>
       <el-form ref="formRef" :model="form" :rules="rules" size="large" @keyup.enter="submit">
         <el-form-item prop="username">
           <el-input v-model="form.username" placeholder="用户名" :prefix-icon="User" />

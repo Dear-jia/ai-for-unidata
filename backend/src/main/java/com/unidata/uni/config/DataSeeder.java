@@ -70,6 +70,7 @@ public class DataSeeder implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         log.info("开始检查并初始化数据...");
+        makeAllScoreLinesFree();
         seedUsers();
         seedSchoolsFromCsv();
         seedDemoScoreLines();
@@ -83,6 +84,22 @@ public class DataSeeder implements CommandLineRunner {
     }
 
     // ---------- 用户 ----------
+
+    /** 会员特权暂未上线：将全部分数线数据设为免费公开（幂等，每次启动执行） */
+    private void makeAllScoreLinesFree() {
+        List<ScoreLine> lines = scoreLineRepository.findAll();
+        boolean changed = false;
+        for (ScoreLine line : lines) {
+            if (Boolean.TRUE.equals(line.getPremium())) {
+                line.setPremium(false);
+                changed = true;
+            }
+        }
+        if (changed) {
+            scoreLineRepository.saveAll(lines);
+            log.info("已将所有分数线数据设为免费公开（共 {} 条）", lines.size());
+        }
+    }
 
     private void seedUsers() {
         if (userRepository.count() > 0) {
@@ -225,8 +242,8 @@ public class DataSeeder implements CommandLineRunner {
                 line.setForeignScore(row[3]);
                 line.setMajorScore1(row[4]);
                 line.setMajorScore2(row[5]);
-                line.setPremium(true);
-                line.setRemark("该专业为历年热门专业，复试竞争较激烈");
+                line.setPremium(false);
+                line.setRemark("该专业为历年热门专业，复试竞争较激烈（当前免费公开）");
                 lines.add(line);
             }
         }
@@ -277,7 +294,7 @@ public class DataSeeder implements CommandLineRunner {
             line.setMinScore(row.total);
             line.setPoliticalScore(row.oneHundred);
             line.setMajorScore1(row.overHundred);
-            line.setPremium(true);
+            line.setPremium(false);
             line.setRemark(row.note == null || row.note.isBlank() ? "官方公布的复试基本分数线（研招网）" : row.note);
             pending.add(line);
         }

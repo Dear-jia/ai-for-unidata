@@ -62,16 +62,12 @@
 
       <div class="section-title" style="font-size: 18px">历年复试分数线</div>
       <el-alert
-        v-if="!auth.isVip"
-        type="warning"
+        type="success"
         :closable="false"
         show-icon
         style="margin-bottom: 14px"
-      >
-        <template #title>
-          以下部分数据为会员专享，<el-link type="primary" @click="$router.push('/member')">开通会员</el-link>后查看完整分数
-        </template>
-      </el-alert>
+        title="全站分数线数据当前免费开放，会员特权功能开发中"
+      />
       <el-table :data="scoreLines" border stripe>
         <el-table-column prop="year" label="年份" width="80" />
         <el-table-column prop="major" label="专业" min-width="140" />
@@ -112,10 +108,8 @@ import { onMounted, ref } from 'vue'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { publicApi } from '../../api'
-import { useAuthStore } from '../../stores/auth'
 
 const route = useRoute()
-const auth = useAuthStore()
 const school = ref(null)
 const scoreLines = ref([])
 const scoreSources = ref([])
