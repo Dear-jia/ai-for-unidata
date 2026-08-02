@@ -4,7 +4,7 @@
     <section class="hero">
       <div class="hero-inner">
         <h1>考研择校，数据先行</h1>
-        <p>覆盖全国 900+ 所研究生招生单位，收录 2025-2026 国家线与各院校计算机相关学科分数线记录</p>
+        <p>覆盖全国 900+ 所研究生招生单位，收录 2025-2026 国家线与各院校学科分数线记录</p>
         <div class="hero-actions">
           <el-button type="primary" size="large" round @click="$router.push('/scores')">查询分数线</el-button>
           <el-button size="large" round plain @click="$router.push('/schools')">浏览院校库</el-button>

@@ -48,13 +48,24 @@
 
       <div class="section-title" style="font-size: 18px">历年复试分数线</div>
       <el-alert v-if="hasRealLines" type="success" :closable="false" show-icon style="margin-bottom: 14px"
-        title="已收录该校单独复试线；页面同时提供计算机相关学科（工学门类）国家线参考，请以官方公布为准" />
+        title="已收录该校单独复试线；页面同时提供各学科门类国家线参考，请以官方公布为准" />
       <el-alert v-else type="info" :closable="false" show-icon style="margin-bottom: 14px"
-        title="该校计算机相关学科单独复试线暂未收录，以下为工学门类（计算机相关学科）国家线参考，具体请以该校官方公布为准" />
+        title="该校单独复试线暂未收录，以下为各学科门类国家线参考（哲学/经济学/法学/工学等），具体以该校官方公布为准" />
       <el-table :data="scoreLines" border stripe>
         <el-table-column prop="year" label="年份" width="80" />
-        <el-table-column prop="major" label="专业" min-width="140" />
-        <el-table-column prop="lineType" label="线类型" width="90" />
+        <el-table-column label="专业" min-width="170">
+          <template #default="{ row }">
+            <span>{{ row.major }}</span>
+            <el-tag v-if="row.lineType === '国家线'" size="small" type="success" style="margin-left: 6px">国家线参考</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="线类型" width="90">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.lineType === '国家线' ? 'success' : 'primary'" effect="plain">
+              {{ row.lineType }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="总分" width="100">
           <template #default="{ row }">
             <span v-if="!row.locked" class="score-num">{{ row.minScore }}</span>

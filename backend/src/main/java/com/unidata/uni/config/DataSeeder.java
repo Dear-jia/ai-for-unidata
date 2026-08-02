@@ -238,43 +238,48 @@ public class DataSeeder implements CommandLineRunner {
         }
     }
 
-    /** 每所院校补充"计算机相关学科（工学门类）"国家线参考记录（2025/2026），保证院校分数线不空 */
+    /** 每所院校补充全学科门类国家线参考记录（2025/2026），保证院校详情页与厦门大学一样具备完整学科数据 */
     private void seedSchoolNationalReference() {
-        List<NationalLine> refs = nationalLineRepository.findByDisciplineContainingOrderByYearDesc("工学");
+        // 重建式写入：先清除所有"国家线参考"记录（仅限平台生成的参考行，不影响各校真实复试线）
+        long deleted = scoreLineRepository.deleteByLineTypeAndRemarkContaining("国家线", "国家线参考");
+        List<NationalLine> refs = nationalLineRepository.findAllByOrderByYearDescIdAsc();
         List<ScoreLine> pending = new ArrayList<>();
-        int skipped = 0;
         for (School school : schoolRepository.findAll()) {
             for (NationalLine nl : refs) {
-                if (nl.getDiscipline() == null || !nl.getDiscipline().contains("其他")) {
-                    continue;
-                }
                 if (nl.getYear() == null || nl.getYear() < 2025) {
                     continue;
                 }
-                boolean exists = scoreLineRepository.existsBySchoolIdAndYearAndMajor(
-                        school.getId(), nl.getYear(), "计算机相关学科（工学门类）");
-                if (exists) {
-                    skipped++;
+                if (nl.getDiscipline() == null || nl.getDiscipline().isBlank()) {
                     continue;
                 }
                 ScoreLine line = new ScoreLine();
                 line.setSchoolId(school.getId());
                 line.setSchoolName(school.getName());
                 line.setYear(nl.getYear());
-                line.setMajor("计算机相关学科（工学门类）");
+                line.setMajor(nl.getDiscipline());
                 line.setLineType("国家线");
                 line.setMinScore(nl.getTotalA());
                 line.setPoliticalScore(nl.getOneA());
                 line.setForeignScore(nl.getOverA());
                 line.setPremium(false);
-                line.setRemark("该校单独复试线暂未收录，此为计算机相关学科（工学门类）A类国家线参考");
+                boolean isComputerEngineering = nl.getDiscipline().startsWith("工学")
+                        && nl.getDiscipline().contains("其他");
+                String remark = isComputerEngineering
+                        ? "计算机相关学科（工学门类）A类国家线参考，以官方公布为准"
+                        : "国家线参考，以官方公布为准";
+                if (nl.getSubjects() != null && !nl.getSubjects().isBlank()
+                        && !"各学科专业".equals(nl.getSubjects())) {
+                    remark += "（" + nl.getSubjects() + "）";
+                }
+                line.setRemark(remark);
                 pending.add(line);
             }
         }
         if (!pending.isEmpty()) {
             scoreLineRepository.saveAll(pending);
         }
-        log.info("院校计算机相关学科国家线参考：新增 {} 条，已存在跳过 {} 条", pending.size(), skipped);
+        log.info("院校全学科国家线参考重建完成：删除 {} 条，写入 {} 条（{} 所院校 × 2 年）",
+                deleted, pending.size(), schoolRepository.count());
     }
 
     private List<SchoolTextRow> readSchoolTextLines() {

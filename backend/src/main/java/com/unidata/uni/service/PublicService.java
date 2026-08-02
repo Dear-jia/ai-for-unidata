@@ -151,9 +151,11 @@ public class PublicService {
         } else if (schoolId != null) {
             result = scoreLineRepository.findBySchoolId(schoolId, pageable);
         } else if (notBlank(major)) {
-            result = scoreLineRepository.findByMajorContainingIgnoreCase(major, pageable);
+            result = scoreLineRepository.findByMajorContainingIgnoreCaseOrRemarkContainingIgnoreCase(
+                    major, major, pageable);
         } else {
-            result = scoreLineRepository.findAll(pageable);
+            // 默认仅展示各校真实复试线，避免国家线参考记录刷屏
+            result = scoreLineRepository.findByLineTypeNotOrderByCreatedAtDesc("国家线", pageable);
         }
         List<ScoreLineView> views = result.getContent().stream()
                 .map(s -> ScoreLineView.from(s, vip))
@@ -200,7 +202,7 @@ public class PublicService {
         List<Activity> latestActivities = activityRepository
                 .findByStatusOrderByCreatedAtDesc(1, PageRequest.of(0, 4)).getContent();
         List<Integer> years = scoreLineRepository.findDistinctYears();
-        List<ScoreLine> latestScoreLines = scoreLineRepository.findTop12ByOrderByCreatedAtDesc();
+        List<ScoreLine> latestScoreLines = scoreLineRepository.findTop12ByLineTypeNotOrderByCreatedAtDesc("国家线");
         List<NationalLine> national2026 = nationalLineRepository.findByYearOrderByIdAsc(2026);
 
         // 34 所自划线院校（有官方复试线来源的院校）
