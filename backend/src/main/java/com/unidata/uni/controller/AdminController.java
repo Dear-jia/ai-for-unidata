@@ -115,6 +115,11 @@ public class AdminController {
         return ApiResponse.ok();
     }
 
+    @PostMapping("/scorelines/import")
+    public ApiResponse<Map<String, Object>> importScoreLines(@RequestBody Map<String, String> body) {
+        return ApiResponse.ok(adminService.importScoreLines(body.get("csv")));
+    }
+
     // ---------- 资讯 ----------
 
     @GetMapping("/articles")

@@ -14,11 +14,16 @@ import com.unidata.uni.repository.MemberOrderRepository;
 import com.unidata.uni.repository.SchoolRepository;
 import com.unidata.uni.repository.ScoreLineRepository;
 import com.unidata.uni.repository.UserRepository;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.Reader;
+import java.io.StringReader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -176,6 +181,75 @@ public class AdminService {
         scoreLineRepository.deleteById(id);
     }
 
+    /**
+     * 批量导入真实复试线（CSV 文本，数据来源可标注任意官方渠道）。
+     * 表头：schoolName,year,major,total,politicalScore,foreignScore,majorScore1,majorScore2,lineType,remark,source
+     */
+    @Transactional
+    public Map<String, Object> importScoreLines(String csvText) {
+        List<String> errors = new java.util.ArrayList<>();
+        int success = 0;
+        if (csvText == null || csvText.isBlank()) {
+            throw new BizException("请粘贴 CSV 数据");
+        }
+        try (Reader reader = new StringReader(csvText);
+             CSVParser parser = CSVFormat.DEFAULT.builder()
+                     .setHeader()
+                     .setSkipHeaderRecord(true)
+                     .setTrim(true)
+                     .build()
+                     .parse(reader)) {
+            int rowNo = 1;
+            for (CSVRecord rec : parser) {
+                rowNo++;
+                String schoolName = clean(rec.get("schoolName"));
+                Integer year = parseInt(rec.get("year"));
+                String major = clean(rec.get("major"));
+                Integer total = parseInt(rec.get("total"));
+                if (schoolName == null || year == null || major == null || total == null) {
+                    errors.add("第 " + rowNo + " 行缺少必填字段（schoolName/year/major/total）");
+                    continue;
+                }
+                if (year < 2025) {
+                    errors.add("第 " + rowNo + " 行年份 " + year + " 早于 2025，已跳过（平台仅保留 2025/2026）");
+                    continue;
+                }
+                School school = schoolRepository.findFirstByName(schoolName).orElse(null);
+                if (school == null) {
+                    errors.add("第 " + rowNo + " 行学校「" + schoolName + "」不存在");
+                    continue;
+                }
+                ScoreLine line = new ScoreLine();
+                line.setSchoolId(school.getId());
+                line.setSchoolName(school.getName());
+                line.setYear(year);
+                line.setMajor(major);
+                String lineType = clean(getOpt(rec, "lineType"));
+                line.setLineType(lineType == null ? "复试线" : lineType);
+                line.setMinScore(total);
+                line.setPoliticalScore(parseInt(getOpt(rec, "politicalScore")));
+                line.setForeignScore(parseInt(getOpt(rec, "foreignScore")));
+                line.setMajorScore1(parseInt(getOpt(rec, "majorScore1")));
+                line.setMajorScore2(parseInt(getOpt(rec, "majorScore2")));
+                String source = clean(getOpt(rec, "source"));
+                String remark = clean(getOpt(rec, "remark"));
+                line.setRemark((remark == null ? "" : remark + "；")
+                        + "来源：" + (source == null ? "管理员录入" : source) + "，以官方公布为准");
+                line.setPremium(false);
+                scoreLineRepository.save(line);
+                success++;
+            }
+        } catch (BizException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BizException("CSV 解析失败：" + e.getMessage());
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", success);
+        result.put("errors", errors);
+        return result;
+    }
+
     // ---------- 资讯管理 ----------
 
     public PageResult<Article> articles(String keyword, int page, int size) {
@@ -248,5 +322,28 @@ public class AdminService {
         map.put("recentOrders", orderRepository.findTop5ByOrderByCreatedAtDesc());
         map.put("recentArticles", articleRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, 5)).getContent());
         return map;
+    }
+
+    private String clean(String v) {
+        if (v == null) return null;
+        String s = v.trim();
+        return s.isEmpty() ? null : s;
+    }
+
+    private Integer parseInt(String v) {
+        if (v == null || v.isBlank()) return null;
+        try {
+            return Integer.parseInt(v.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private String getOpt(CSVRecord rec, String column) {
+        try {
+            return rec.get(column);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

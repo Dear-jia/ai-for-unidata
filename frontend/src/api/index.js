@@ -46,6 +46,7 @@ export const adminApi = {
   createScoreLine: (data) => request.post('/admin/scorelines', data),
   updateScoreLine: (id, data) => request.put(`/admin/scorelines/${id}`, data),
   deleteScoreLine: (id) => request.delete(`/admin/scorelines/${id}`),
+  importScoreLines: (data) => request.post('/admin/scorelines/import', data),
   articles: (params) => request.get('/admin/articles', { params }),
   createArticle: (data) => request.post('/admin/articles', data),
   updateArticle: (id, data) => request.put(`/admin/articles/${id}`, data),
