@@ -22,6 +22,8 @@ public interface ScoreLineRepository extends JpaRepository<ScoreLine, Long> {
 
     void deleteBySchoolIdAndYearAndLineType(Long schoolId, Integer year, String lineType);
 
+    long deleteByYearLessThan(Integer year);
+
     @Query("select distinct s.year from ScoreLine s order by s.year desc")
     List<Integer> findDistinctYears();
 }

@@ -12,6 +12,10 @@ public interface NationalLineRepository extends JpaRepository<NationalLine, Long
 
     List<NationalLine> findAllByOrderByYearDescIdAsc();
 
+    List<NationalLine> findByDisciplineContainingOrderByYearDesc(String discipline);
+
+    long deleteByYearLessThan(Integer year);
+
     @Query("select distinct n.year from NationalLine n order by n.year desc")
     List<Integer> findDistinctYears();
 }

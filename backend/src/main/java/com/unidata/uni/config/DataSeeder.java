@@ -71,9 +71,9 @@ public class DataSeeder implements CommandLineRunner {
     public void run(String... args) {
         log.info("开始检查并初始化数据...");
         makeAllScoreLinesFree();
+        removeOldScoreLines();
         seedUsers();
         seedSchoolsFromCsv();
-        seedDemoScoreLines();
         seedSchoolTextLines();
         seedNationalLines();
         seedSchoolScoreSources();
@@ -98,6 +98,15 @@ public class DataSeeder implements CommandLineRunner {
         if (changed) {
             scoreLineRepository.saveAll(lines);
             log.info("已将所有分数线数据设为免费公开（共 {} 条）", lines.size());
+        }
+    }
+
+    /** 仅保留 2025、2026 两年数据：清理更早的分数线与国家线（幂等，每次启动执行） */
+    private void removeOldScoreLines() {
+        long lines = scoreLineRepository.deleteByYearLessThan(2025);
+        long nationals = nationalLineRepository.deleteByYearLessThan(2025);
+        if (lines > 0 || nationals > 0) {
+            log.info("已清理 2024 及更早数据：院校分数线 {} 条，国家线 {} 条", lines, nationals);
         }
     }
 
@@ -191,82 +200,6 @@ public class DataSeeder implements CommandLineRunner {
                 || n.contains("海洋") || n.contains("船舶") || n.contains("国防") || n.contains("信息")
                 || n.contains("工程") || n.contains("机电") || n.contains("铁道")) return "理工";
         return "综合";
-    }
-
-    // ---------- 演示院校历年分数线 ----------
-
-    private void seedDemoScoreLines() {
-        if (scoreLineRepository.count() > 0) {
-            return;
-        }
-        String[] names = {"清华大学", "北京大学", "复旦大学", "浙江大学", "武汉大学", "上海交通大学",
-                "华中科技大学", "中山大学", "四川大学", "华东师范大学"};
-        int[][] scores = {
-                {2024, 385, 60, 60, 90, 90}, {2023, 380, 60, 60, 90, 90},
-                {2022, 375, 55, 55, 90, 90}, {2021, 370, 55, 55, 85, 85},
-                {2024, 390, 60, 60, 95, 95}, {2023, 385, 60, 60, 90, 90},
-                {2022, 378, 55, 55, 90, 90}, {2021, 372, 55, 55, 85, 85},
-                {2024, 375, 60, 60, 90, 90}, {2023, 370, 60, 60, 90, 90},
-                {2022, 365, 55, 55, 85, 85}, {2021, 360, 55, 55, 85, 85},
-                {2024, 380, 60, 60, 95, 95}, {2023, 375, 55, 55, 90, 90},
-                {2022, 370, 55, 55, 90, 90}, {2021, 365, 55, 55, 85, 85},
-                {2024, 365, 55, 55, 90, 90}, {2023, 360, 55, 55, 85, 85},
-                {2022, 355, 50, 50, 85, 85}, {2021, 350, 50, 50, 80, 80},
-                {2024, 383, 60, 60, 95, 95}, {2023, 377, 60, 60, 90, 90},
-                {2022, 372, 55, 55, 90, 90}, {2021, 365, 55, 55, 85, 85},
-                {2024, 360, 55, 55, 90, 90}, {2023, 355, 55, 55, 85, 85},
-                {2022, 350, 50, 50, 85, 85}, {2021, 345, 50, 50, 80, 80},
-                {2024, 358, 55, 55, 85, 85}, {2023, 352, 50, 50, 85, 85},
-                {2022, 348, 50, 50, 80, 80}, {2021, 342, 50, 50, 80, 80},
-                {2024, 355, 55, 55, 85, 85}, {2023, 350, 50, 50, 85, 85},
-                {2022, 345, 50, 50, 80, 80}, {2021, 340, 50, 50, 80, 80},
-                {2024, 368, 55, 55, 90, 90}, {2023, 362, 55, 55, 85, 85},
-                {2022, 356, 50, 50, 85, 85}, {2021, 350, 50, 50, 80, 80},
-        };
-        String[] majors = {"计算机科学与技术", "软件工程", "电子信息", "会计学", "教育学", "心理学"};
-        List<ScoreLine> lines = new ArrayList<>();
-        for (int i = 0; i < names.length; i++) {
-            School s = schoolRepository.findFirstByName(names[i]).orElse(null);
-            if (s == null) continue;
-            int base = i * 4;
-            for (int m = 0; m < 2; m++) {
-                int[] row = scores[base + m];
-                ScoreLine line = new ScoreLine();
-                line.setSchoolId(s.getId());
-                line.setSchoolName(s.getName());
-                line.setYear(row[0]);
-                line.setMajor(majors[(i + m) % majors.length]);
-                line.setLineType("复试线");
-                line.setMinScore(row[1]);
-                line.setPoliticalScore(row[2]);
-                line.setForeignScore(row[3]);
-                line.setMajorScore1(row[4]);
-                line.setMajorScore2(row[5]);
-                line.setPremium(false);
-                line.setRemark("该专业为历年热门专业，复试竞争较激烈（当前免费公开）");
-                lines.add(line);
-            }
-        }
-        for (int i = 0; i < Math.min(4, names.length); i++) {
-            School s = schoolRepository.findFirstByName(names[i]).orElse(null);
-            if (s == null) continue;
-            ScoreLine line = new ScoreLine();
-            line.setSchoolId(s.getId());
-            line.setSchoolName(s.getName());
-            line.setYear(2024);
-            line.setMajor("马克思主义理论");
-            line.setLineType("国家线");
-            line.setMinScore(331 + i * 2);
-            line.setPoliticalScore(45);
-            line.setForeignScore(45);
-            line.setMajorScore1(68);
-            line.setMajorScore2(68);
-            line.setPremium(false);
-            line.setRemark("2024年国家线公开数据");
-            lines.add(line);
-        }
-        scoreLineRepository.saveAll(lines);
-        log.info("演示院校分数线已写入 {} 条", lines.size());
     }
 
     // ---------- 34 校中可解析为文本的复试线（如厦门大学 2025） ----------

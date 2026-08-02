@@ -49,7 +49,14 @@
     <footer class="site-footer">
       <div class="footer-inner">
         <p class="text-muted">研数 UniData · 考研院校分数线数据平台</p>
-        <p class="text-muted">数据仅供备考参考，请以各高校官方发布为准</p>
+        <p class="text-muted">数据来自教育部与各高校公开渠道，仅供备考参考，请以官方最新发布为准</p>
+        <p class="footer-links">
+          <router-link to="/legal/disclaimer">免责声明</router-link>
+          <span class="dot">·</span>
+          <router-link to="/legal/privacy">隐私政策</router-link>
+          <span class="dot">·</span>
+          <router-link to="/legal/terms">用户协议</router-link>
+        </p>
       </div>
     </footer>
   </div>
@@ -173,5 +180,22 @@ onMounted(() => {
 
 .footer-inner p {
   margin: 4px 0;
+}
+
+.footer-links {
+  font-size: 13px;
+}
+
+.footer-links a {
+  color: #909399;
+  margin: 0 6px;
+}
+
+.footer-links a:hover {
+  color: #409eff;
+}
+
+.footer-links .dot {
+  color: #dcdfe6;
 }
 </style>

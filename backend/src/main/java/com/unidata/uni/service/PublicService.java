@@ -24,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -102,12 +103,37 @@ public class PublicService {
         School school = schoolRepository.findById(id)
                 .orElseThrow(() -> new BizException("学校不存在"));
         boolean vip = currentUserIsVip();
-        List<ScoreLineView> lines = scoreLineRepository.findBySchoolIdOrderByYearDesc(id).stream()
+        List<ScoreLine> lines = scoreLineRepository.findBySchoolIdOrderByYearDesc(id);
+        boolean hasNationalReference = false;
+        if (lines.isEmpty()) {
+            // 该校单独复试线暂未收录时，展示计算机相关学科（工学门类）国家线作为真实参考数据
+            lines = new ArrayList<>();
+            for (NationalLine nl : nationalLineRepository.findByDisciplineContainingOrderByYearDesc("工学")) {
+                if (nl.getDiscipline() == null || !nl.getDiscipline().contains("其他")) {
+                    continue;
+                }
+                ScoreLine line = new ScoreLine();
+                line.setSchoolId(school.getId());
+                line.setSchoolName(school.getName());
+                line.setYear(nl.getYear());
+                line.setMajor("计算机相关学科（工学门类）");
+                line.setLineType("国家线");
+                line.setMinScore(nl.getTotalA());
+                line.setPoliticalScore(nl.getOneA());
+                line.setForeignScore(nl.getOverA());
+                line.setPremium(false);
+                line.setRemark("该校单独复试线暂未收录，此为计算机相关学科（工学门类）A类国家线参考");
+                lines.add(line);
+            }
+            hasNationalReference = !lines.isEmpty();
+        }
+        List<ScoreLineView> views = lines.stream()
                 .map(s -> ScoreLineView.from(s, vip))
                 .toList();
         Map<String, Object> detail = new HashMap<>();
         detail.put("school", school);
-        detail.put("scoreLines", lines);
+        detail.put("scoreLines", views);
+        detail.put("hasNationalReference", hasNationalReference);
         detail.put("years", scoreLineRepository.findDistinctYears());
         detail.put("scoreSources", scoreSourceRepository.findBySchoolIdOrderByYearDescSortAsc(id));
         return detail;

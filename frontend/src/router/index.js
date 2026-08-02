@@ -13,6 +13,7 @@ const routes = [
       { path: 'articles', name: 'Articles', component: () => import('../views/user/ArticleListView.vue') },
       { path: 'articles/:id', name: 'ArticleDetail', component: () => import('../views/user/ArticleDetailView.vue') },
       { path: 'activities', name: 'Activities', component: () => import('../views/user/ActivityListView.vue') },
+      { path: 'legal/:type', name: 'Legal', component: () => import('../views/user/LegalView.vue') },
       { path: 'member', name: 'Member', component: () => import('../views/user/MemberView.vue') },
       { path: 'profile', name: 'Profile', component: () => import('../views/user/ProfileView.vue'), meta: { requiresAuth: true } }
     ]

@@ -5,7 +5,7 @@
     <el-card shadow="never" style="margin-bottom: 20px">
       <el-radio-group v-model="mode" @change="onModeChange">
         <el-radio-button value="school">院校复试线</el-radio-button>
-        <el-radio-button value="national">国家线（2024-2026）</el-radio-button>
+        <el-radio-button value="national">国家线（2025-2026）</el-radio-button>
       </el-radio-group>
     </el-card>
 
@@ -136,7 +136,7 @@ const nationalYear = ref(2026)
 const nationalKeyword = ref('')
 const nationalList = ref([])
 const nationalLoading = ref(false)
-const nationalYears = ref([2026, 2025, 2024])
+const nationalYears = ref([2026, 2025])
 
 async function load() {
   loading.value = true
@@ -187,12 +187,18 @@ function onModeChange() {
 }
 
 onMounted(async () => {
-  const [home, schoolData] = await Promise.all([
+  const [home, schoolData, nationalAll] = await Promise.all([
     publicApi.home(),
-    publicApi.schools({ page: 1, size: 1000 })
+    publicApi.schools({ page: 1, size: 1000 }),
+    publicApi.nationalLines({})
   ])
   years.value = home.years || []
   schoolOptions.value = schoolData.list
+  const ys = [...new Set((nationalAll || []).map((r) => r.year))].sort((a, b) => b - a)
+  if (ys.length) {
+    nationalYears.value = ys
+    if (!ys.includes(nationalYear.value)) nationalYear.value = ys[0]
+  }
   load()
 })
 </script>
