@@ -75,6 +75,7 @@ public class DataSeeder implements CommandLineRunner {
         seedUsers();
         seedSchoolsFromCsv();
         seedSchoolTextLines();
+        seedSchoolNationalReference();
         seedNationalLines();
         seedSchoolScoreSources();
         seedArticles();
@@ -235,6 +236,45 @@ public class DataSeeder implements CommandLineRunner {
         if (!pending.isEmpty()) {
             log.info("院校文本复试线已写入 {} 条", pending.size());
         }
+    }
+
+    /** 每所院校补充"计算机相关学科（工学门类）"国家线参考记录（2025/2026），保证院校分数线不空 */
+    private void seedSchoolNationalReference() {
+        List<NationalLine> refs = nationalLineRepository.findByDisciplineContainingOrderByYearDesc("工学");
+        List<ScoreLine> pending = new ArrayList<>();
+        int skipped = 0;
+        for (School school : schoolRepository.findAll()) {
+            for (NationalLine nl : refs) {
+                if (nl.getDiscipline() == null || !nl.getDiscipline().contains("其他")) {
+                    continue;
+                }
+                if (nl.getYear() == null || nl.getYear() < 2025) {
+                    continue;
+                }
+                boolean exists = scoreLineRepository.existsBySchoolIdAndYearAndMajor(
+                        school.getId(), nl.getYear(), "计算机相关学科（工学门类）");
+                if (exists) {
+                    skipped++;
+                    continue;
+                }
+                ScoreLine line = new ScoreLine();
+                line.setSchoolId(school.getId());
+                line.setSchoolName(school.getName());
+                line.setYear(nl.getYear());
+                line.setMajor("计算机相关学科（工学门类）");
+                line.setLineType("国家线");
+                line.setMinScore(nl.getTotalA());
+                line.setPoliticalScore(nl.getOneA());
+                line.setForeignScore(nl.getOverA());
+                line.setPremium(false);
+                line.setRemark("该校单独复试线暂未收录，此为计算机相关学科（工学门类）A类国家线参考");
+                pending.add(line);
+            }
+        }
+        if (!pending.isEmpty()) {
+            scoreLineRepository.saveAll(pending);
+        }
+        log.info("院校计算机相关学科国家线参考：新增 {} 条，已存在跳过 {} 条", pending.size(), skipped);
     }
 
     private List<SchoolTextRow> readSchoolTextLines() {

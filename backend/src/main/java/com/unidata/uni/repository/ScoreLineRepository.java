@@ -26,4 +26,8 @@ public interface ScoreLineRepository extends JpaRepository<ScoreLine, Long> {
 
     @Query("select distinct s.year from ScoreLine s order by s.year desc")
     List<Integer> findDistinctYears();
+
+    List<ScoreLine> findTop12ByOrderByCreatedAtDesc();
+
+    boolean existsBySchoolIdAndYearAndMajor(Long schoolId, Integer year, String major);
 }

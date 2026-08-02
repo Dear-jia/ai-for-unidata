@@ -104,35 +104,16 @@ public class PublicService {
                 .orElseThrow(() -> new BizException("学校不存在"));
         boolean vip = currentUserIsVip();
         List<ScoreLine> lines = scoreLineRepository.findBySchoolIdOrderByYearDesc(id);
-        boolean hasNationalReference = false;
-        if (lines.isEmpty()) {
-            // 该校单独复试线暂未收录时，展示计算机相关学科（工学门类）国家线作为真实参考数据
-            lines = new ArrayList<>();
-            for (NationalLine nl : nationalLineRepository.findByDisciplineContainingOrderByYearDesc("工学")) {
-                if (nl.getDiscipline() == null || !nl.getDiscipline().contains("其他")) {
-                    continue;
-                }
-                ScoreLine line = new ScoreLine();
-                line.setSchoolId(school.getId());
-                line.setSchoolName(school.getName());
-                line.setYear(nl.getYear());
-                line.setMajor("计算机相关学科（工学门类）");
-                line.setLineType("国家线");
-                line.setMinScore(nl.getTotalA());
-                line.setPoliticalScore(nl.getOneA());
-                line.setForeignScore(nl.getOverA());
-                line.setPremium(false);
-                line.setRemark("该校单独复试线暂未收录，此为计算机相关学科（工学门类）A类国家线参考");
-                lines.add(line);
-            }
-            hasNationalReference = !lines.isEmpty();
-        }
+        boolean hasRealLines = lines.stream().anyMatch(l -> "复试线".equals(l.getLineType()));
+        boolean hasNationalReference = lines.stream().anyMatch(l ->
+                "国家线".equals(l.getLineType()) && l.getMajor() != null && l.getMajor().contains("计算机相关学科"));
         List<ScoreLineView> views = lines.stream()
                 .map(s -> ScoreLineView.from(s, vip))
                 .toList();
         Map<String, Object> detail = new HashMap<>();
         detail.put("school", school);
         detail.put("scoreLines", views);
+        detail.put("hasRealLines", hasRealLines);
         detail.put("hasNationalReference", hasNationalReference);
         detail.put("years", scoreLineRepository.findDistinctYears());
         detail.put("scoreSources", scoreSourceRepository.findBySchoolIdOrderByYearDescSortAsc(id));
@@ -213,24 +194,56 @@ public class PublicService {
     }
 
     public Map<String, Object> home() {
-        List<School> hotSchools = schoolRepository.findByStatusOrderByLevelDescIdAsc(1, PageRequest.of(0, 8));
+        List<School> hotSchools = schoolRepository.findByStatusOrderByLevelDescIdAsc(1, PageRequest.of(0, 12));
         List<Article> latestArticles = articleRepository
                 .findByStatusOrderByCreatedAtDesc(1, PageRequest.of(0, 6)).getContent();
         List<Activity> latestActivities = activityRepository
                 .findByStatusOrderByCreatedAtDesc(1, PageRequest.of(0, 4)).getContent();
         List<Integer> years = scoreLineRepository.findDistinctYears();
+        List<ScoreLine> latestScoreLines = scoreLineRepository.findTop12ByOrderByCreatedAtDesc();
+        List<NationalLine> national2026 = nationalLineRepository.findByYearOrderByIdAsc(2026);
+
+        // 34 所自划线院校（有官方复试线来源的院校）
+        List<Long> sourceSchoolIds = scoreSourceRepository.findDistinctSchoolIds();
+        List<School> selfLineSchools = sourceSchoolIds.isEmpty()
+                ? List.of()
+                : schoolRepository.findAllById(sourceSchoolIds);
+
+        // 省份院校数量分布（取前 12）
+        Map<String, Long> provinceCount = new HashMap<>();
+        for (School s : schoolRepository.findAll()) {
+            if (s.getProvince() != null && !s.getProvince().isBlank()) {
+                provinceCount.merge(s.getProvince(), 1L, Long::sum);
+            }
+        }
+        List<Map<String, Object>> provinceStats = provinceCount.entrySet().stream()
+                .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+                .limit(12)
+                .map(e -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("province", e.getKey());
+                    m.put("count", e.getValue());
+                    return m;
+                })
+                .toList();
 
         Map<String, Object> home = new HashMap<>();
         home.put("hotSchools", hotSchools);
         home.put("latestArticles", latestArticles);
         home.put("latestActivities", latestActivities);
+        home.put("latestScoreLines", latestScoreLines);
+        home.put("national2026", national2026);
+        home.put("selfLineSchools", selfLineSchools);
+        home.put("provinceStats", provinceStats);
         home.put("years", years);
         home.put("schoolCount", schoolRepository.count());
         home.put("scoreLineCount", scoreLineRepository.count());
+        home.put("nationalLineCount", nationalLineRepository.count());
         home.put("userCount", userRepository.count());
         home.put("stats", Map.of(
                 "schools", schoolRepository.count(),
                 "scoreLines", scoreLineRepository.count(),
+                "nationalLines", nationalLineRepository.count(),
                 "articles", articleRepository.count(),
                 "users", userRepository.count()));
         return home;

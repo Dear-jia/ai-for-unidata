@@ -47,10 +47,10 @@
       </template>
 
       <div class="section-title" style="font-size: 18px">历年复试分数线</div>
-      <el-alert v-if="hasNationalReference" type="info" :closable="false" show-icon style="margin-bottom: 14px"
+      <el-alert v-if="hasRealLines" type="success" :closable="false" show-icon style="margin-bottom: 14px"
+        title="已收录该校单独复试线；页面同时提供计算机相关学科（工学门类）国家线参考，请以官方公布为准" />
+      <el-alert v-else type="info" :closable="false" show-icon style="margin-bottom: 14px"
         title="该校计算机相关学科单独复试线暂未收录，以下为工学门类（计算机相关学科）国家线参考，具体请以该校官方公布为准" />
-      <el-alert v-else type="success" :closable="false" show-icon style="margin-bottom: 14px"
-        title="全站分数线数据当前免费开放，会员特权功能开发中" />
       <el-table :data="scoreLines" border stripe>
         <el-table-column prop="year" label="年份" width="80" />
         <el-table-column prop="major" label="专业" min-width="140" />
@@ -97,7 +97,7 @@ const route = useRoute()
 const school = ref(null)
 const scoreLines = ref([])
 const scoreSources = ref([])
-const hasNationalReference = ref(false)
+const hasRealLines = ref(false)
 
 const sourceYears = computed(() => [...new Set(scoreSources.value.map((s) => s.year))].sort((a, b) => b - a))
 
@@ -106,7 +106,7 @@ onMounted(async () => {
   school.value = data.school
   scoreLines.value = data.scoreLines
   scoreSources.value = data.scoreSources || []
-  hasNationalReference.value = data.hasNationalReference || false
+  hasRealLines.value = data.hasRealLines || false
 })
 
 function openUrl(url) {

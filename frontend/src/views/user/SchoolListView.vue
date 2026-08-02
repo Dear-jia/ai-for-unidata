@@ -60,8 +60,10 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { publicApi } from '../../api'
 
+const route = useRoute()
 const provinces = ref([])
 const categories = ref([])
 const levels = ref([])
@@ -108,6 +110,9 @@ function onPage(p) {
 
 onMounted(() => {
   loadFilters()
+  if (route.query.province) {
+    query.province = String(route.query.province)
+  }
   load()
 })
 </script>
