@@ -25,6 +25,10 @@ public class School {
     @Column(length = 50)
     private String city;
 
+    /** 主管部门（如：教育部 / 北京市） */
+    @Column(length = 100)
+    private String dept;
+
     /** 综合/理工/师范/医药/财经/农林/政法/艺术/语言/民族 */
     @Column(length = 20)
     private String category;
@@ -35,6 +39,10 @@ public class School {
 
     @Column(length = 200)
     private String logo;
+
+    /** 招生官网/研招网招生细则页面地址 */
+    @Column(length = 500)
+    private String admissionUrl;
 
     @Column(length = 2000)
     private String intro;

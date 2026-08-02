@@ -18,7 +18,14 @@
       <el-table-column prop="province" label="省份" width="90" />
       <el-table-column prop="city" label="城市" width="90" />
       <el-table-column prop="category" label="类型" width="90" />
+      <el-table-column prop="dept" label="主管部门" min-width="120" show-overflow-tooltip />
       <el-table-column prop="level" label="层次" min-width="130" />
+      <el-table-column label="招生信息" min-width="150">
+        <template #default="{ row }">
+          <el-link v-if="row.admissionUrl" type="primary" :href="row.admissionUrl" target="_blank">研招网信息页</el-link>
+          <span v-else class="text-muted">-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="状态" width="80">
         <template #default="{ row }">
           <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">{{ row.status === 1 ? '正常' : '隐藏' }}</el-tag>
@@ -62,6 +69,12 @@
         <el-form-item label="学校简介">
           <el-input v-model="form.intro" type="textarea" :rows="4" />
         </el-form-item>
+        <el-form-item label="主管部门">
+          <el-input v-model="form.dept" placeholder="如：教育部 / 北京市" />
+        </el-form-item>
+        <el-form-item label="招生信息地址">
+          <el-input v-model="form.admissionUrl" placeholder="研招网院校信息页或学校官网招生页" />
+        </el-form-item>
         <el-form-item label="状态">
           <el-switch v-model="form.status" :active-value="1" :inactive-value="0" active-text="展示" inactive-text="隐藏" />
         </el-form-item>
@@ -79,8 +92,8 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi } from '../../api'
 
-const categories = ['综合', '理工', '师范', '医药', '财经', '农林', '政法', '艺术', '语言', '民族']
-const levels = ['985/211/双一流', '211/双一流', '双一流', '普通本科']
+const categories = ['综合', '理工', '师范', '医药', '财经', '农林', '政法', '艺术', '语言', '民族', '体育', '军事']
+const levels = ['985/211/双一流', '双一流', '研究生院']
 const keyword = ref('')
 const list = ref([])
 const total = ref(0)
@@ -104,7 +117,7 @@ async function load(p = page.value) {
 }
 
 function openCreate() {
-  Object.assign(form, { name: '', province: '', city: '', category: '综合', level: '普通本科', intro: '', status: 1 })
+  Object.assign(form, { name: '', province: '', city: '', category: '综合', level: '', intro: '', dept: '', admissionUrl: '', status: 1 })
   dialogVisible.value = true
 }
 

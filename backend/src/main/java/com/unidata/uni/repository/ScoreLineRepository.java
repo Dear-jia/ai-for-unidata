@@ -18,6 +18,10 @@ public interface ScoreLineRepository extends JpaRepository<ScoreLine, Long> {
 
     Page<ScoreLine> findByMajorContainingIgnoreCase(String major, Pageable pageable);
 
+    boolean existsBySchoolIdAndYearAndLineType(Long schoolId, Integer year, String lineType);
+
+    void deleteBySchoolIdAndYearAndLineType(Long schoolId, Integer year, String lineType);
+
     @Query("select distinct s.year from ScoreLine s order by s.year desc")
     List<Integer> findDistinctYears();
 }

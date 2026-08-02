@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface SchoolRepository extends JpaRepository<School, Long> {
 
@@ -40,4 +41,6 @@ public interface SchoolRepository extends JpaRepository<School, Long> {
     Page<School> findByNameContainingIgnoreCaseAndProvinceAndCategoryAndLevel(String name, String province, String category, String level, Pageable pageable);
 
     List<School> findByStatusOrderByLevelDescIdAsc(Integer status, Pageable pageable);
+
+    Optional<School> findFirstByName(String name);
 }

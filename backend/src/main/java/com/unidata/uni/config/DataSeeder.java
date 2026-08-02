@@ -2,24 +2,37 @@ package com.unidata.uni.config;
 
 import com.unidata.uni.entity.Activity;
 import com.unidata.uni.entity.Article;
+import com.unidata.uni.entity.NationalLine;
 import com.unidata.uni.entity.School;
 import com.unidata.uni.entity.ScoreLine;
+import com.unidata.uni.entity.ScoreSource;
 import com.unidata.uni.entity.User;
 import com.unidata.uni.repository.ActivityRepository;
 import com.unidata.uni.repository.ArticleRepository;
+import com.unidata.uni.repository.NationalLineRepository;
 import com.unidata.uni.repository.SchoolRepository;
 import com.unidata.uni.repository.ScoreLineRepository;
+import com.unidata.uni.repository.ScoreSourceRepository;
 import com.unidata.uni.repository.UserRepository;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 @Component
 public class DataSeeder implements CommandLineRunner {
@@ -29,6 +42,8 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final SchoolRepository schoolRepository;
     private final ScoreLineRepository scoreLineRepository;
+    private final NationalLineRepository nationalLineRepository;
+    private final ScoreSourceRepository scoreSourceRepository;
     private final ArticleRepository articleRepository;
     private final ActivityRepository activityRepository;
     private final PasswordEncoder passwordEncoder;
@@ -36,12 +51,16 @@ public class DataSeeder implements CommandLineRunner {
     public DataSeeder(UserRepository userRepository,
                       SchoolRepository schoolRepository,
                       ScoreLineRepository scoreLineRepository,
+                      NationalLineRepository nationalLineRepository,
+                      ScoreSourceRepository scoreSourceRepository,
                       ArticleRepository articleRepository,
                       ActivityRepository activityRepository,
                       PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.schoolRepository = schoolRepository;
         this.scoreLineRepository = scoreLineRepository;
+        this.nationalLineRepository = nationalLineRepository;
+        this.scoreSourceRepository = scoreSourceRepository;
         this.articleRepository = articleRepository;
         this.activityRepository = activityRepository;
         this.passwordEncoder = passwordEncoder;
@@ -50,18 +69,25 @@ public class DataSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
+        log.info("开始检查并初始化数据...");
+        seedUsers();
+        seedSchoolsFromCsv();
+        seedDemoScoreLines();
+        seedSchoolTextLines();
+        seedNationalLines();
+        seedSchoolScoreSources();
+        seedArticles();
+        seedActivities();
+        log.info("数据检查完成。管理员账号 admin / admin123，院校 {} 所，分数线 {} 条，国家线 {} 条",
+                schoolRepository.count(), scoreLineRepository.count(), nationalLineRepository.count());
+    }
+
+    // ---------- 用户 ----------
+
+    private void seedUsers() {
         if (userRepository.count() > 0) {
             return;
         }
-        log.info("数据库为空，开始初始化演示数据...");
-        seedUsers();
-        seedSchoolsAndScores();
-        seedArticles();
-        seedActivities();
-        log.info("演示数据初始化完成。管理员账号 admin / admin123");
-    }
-
-    private void seedUsers() {
         User admin = new User();
         admin.setUsername("admin");
         admin.setPassword(passwordEncoder.encode("admin123"));
@@ -78,66 +104,113 @@ public class DataSeeder implements CommandLineRunner {
         userRepository.save(vip);
     }
 
-    private void seedSchoolsAndScores() {
-        List<School> schools = new ArrayList<>();
-        schools.add(school("清华大学", "北京", "北京", "综合", "985/211/双一流",
-                "国内顶尖综合性研究型大学，工科实力全球领先，计算机、电子、经管等专业报考热度极高。"));
-        schools.add(school("北京大学", "北京", "北京", "综合", "985/211/双一流",
-                "国内历史最悠久的高等学府之一，文理基础学科实力雄厚，光华、元培等学院报考竞争激烈。"));
-        schools.add(school("复旦大学", "上海", "上海", "综合", "985/211/双一流",
-                "地处上海的综合性研究型大学，新闻、金融、医学等专业位居全国前列。"));
-        schools.add(school("浙江大学", "浙江", "杭州", "综合", "985/211/双一流",
-                "学科门类齐全的综合性大学，计算机、控制、农学等专业实力突出。"));
-        schools.add(school("武汉大学", "湖北", "武汉", "综合", "985/211/双一流",
-                "风景优美的百年名校，法学、测绘、图书情报等专业特色鲜明。"));
-        schools.add(school("上海交通大学", "上海", "上海", "综合", "985/211/双一流",
-                "工科与医学并重的顶尖高校，安泰经管、电院、医学院报考热度常年居高。"));
-        schools.add(school("华中科技大学", "湖北", "武汉", "理工", "985/211/双一流",
-                "以工科见长的全国重点大学，光电、机械、临床医学等专业实力强劲。"));
-        schools.add(school("中山大学", "广东", "广州", "综合", "985/211/双一流",
-                "华南地区顶尖综合性大学，医学、经管、海洋科学等专业优势明显。"));
-        schools.add(school("四川大学", "四川", "成都", "综合", "985/211/双一流",
-                "西南地区综合实力最强的大学之一，口腔医学全国第一，材料、生物等专业优势突出。"));
-        schools.add(school("华东师范大学", "上海", "上海", "师范", "985/211/双一流",
-                "教育部直属重点师范大学，教育学、心理学、统计学等专业全国领先。"));
-        schoolRepository.saveAll(schools);
+    // ---------- 学校库（939 所招生单位，来自研招网院校库） ----------
 
+    private void seedSchoolsFromCsv() {
+        if (schoolRepository.count() >= 900) {
+            log.info("院校数据已存在（{} 所），跳过导入", schoolRepository.count());
+            return;
+        }
+        int created = 0;
+        int updated = 0;
+        try (Reader reader = new InputStreamReader(
+                Objects.requireNonNull(getClass().getResourceAsStream("/schools.csv")), StandardCharsets.UTF_8);
+             CSVParser parser = CSVFormat.DEFAULT.builder()
+                     .setHeader()
+                     .setSkipHeaderRecord(true)
+                     .setTrim(true)
+                     .build()
+                     .parse(reader)) {
+            for (CSVRecord rec : parser) {
+                String name = rec.get("name");
+                if (name == null || name.isBlank()) {
+                    continue;
+                }
+                name = name.trim();
+                Optional<School> exist = schoolRepository.findFirstByName(name);
+                School s = exist.orElseGet(School::new);
+                s.setName(name);
+                s.setProvince(clean(rec.get("province")));
+                s.setDept(clean(rec.get("dept")));
+                s.setLevel(clean(rec.get("level")));
+                s.setAdmissionUrl(clean(rec.get("admissionUrl")));
+                if (s.getCategory() == null || s.getCategory().isBlank()) {
+                    s.setCategory(guessCategory(name));
+                }
+                if (s.getStatus() == null) {
+                    s.setStatus(1);
+                }
+                schoolRepository.save(s);
+                if (exist.isEmpty()) created++; else updated++;
+            }
+        } catch (Exception e) {
+            log.error("导入 schools.csv 失败", e);
+        }
+        log.info("院校库导入完成：新增 {} 所，更新 {} 所，当前共 {} 所", created, updated, schoolRepository.count());
+    }
+
+    private String guessCategory(String name) {
+        String n = name == null ? "" : name;
+        if (n.contains("师范") || n.contains("教育")) return "师范";
+        if (n.contains("民族")) return "民族";
+        if (n.contains("医药") || n.contains("医科") || n.contains("中医") || n.contains("医学")
+                || n.contains("卫生") || n.contains("药科") || n.contains("护理")) return "医药";
+        if (n.contains("财经") || n.contains("金融") || n.contains("经贸") || n.contains("工商")
+                || n.contains("商业") || n.contains("审计") || n.contains("税务") || n.contains("经济")) return "财经";
+        if (n.contains("政法") || n.contains("公安") || n.contains("警察") || n.contains("司法")
+                || n.contains("国际关系") || n.contains("外交")) return "政法";
+        if (n.contains("艺术") || n.contains("美术") || n.contains("音乐") || n.contains("传媒")
+                || n.contains("戏剧") || n.contains("电影") || n.contains("舞蹈") || n.contains("设计")) return "艺术";
+        if (n.contains("语言") || n.contains("外国语") || n.contains("外事")) return "语言";
+        if (n.contains("农业") || n.contains("农林") || n.contains("林业") || n.contains("畜牧")
+                || n.contains("水产") || n.contains("农垦")) return "农林";
+        if (n.contains("体育")) return "体育";
+        if (n.contains("军事") || n.contains("陆军") || n.contains("海军") || n.contains("空军")
+                || n.contains("国防大学") || n.contains("警官")) return "军事";
+        if (n.contains("理工") || n.contains("科技") || n.contains("工业") || n.contains("交通")
+                || n.contains("航空") || n.contains("航天") || n.contains("电力") || n.contains("邮电")
+                || n.contains("电子") || n.contains("石油") || n.contains("地质") || n.contains("矿业")
+                || n.contains("冶金") || n.contains("化工") || n.contains("建筑") || n.contains("水利")
+                || n.contains("海洋") || n.contains("船舶") || n.contains("国防") || n.contains("信息")
+                || n.contains("工程") || n.contains("机电") || n.contains("铁道")) return "理工";
+        return "综合";
+    }
+
+    // ---------- 演示院校历年分数线 ----------
+
+    private void seedDemoScoreLines() {
+        if (scoreLineRepository.count() > 0) {
+            return;
+        }
+        String[] names = {"清华大学", "北京大学", "复旦大学", "浙江大学", "武汉大学", "上海交通大学",
+                "华中科技大学", "中山大学", "四川大学", "华东师范大学"};
         int[][] scores = {
-                // 清华
                 {2024, 385, 60, 60, 90, 90}, {2023, 380, 60, 60, 90, 90},
                 {2022, 375, 55, 55, 90, 90}, {2021, 370, 55, 55, 85, 85},
-                // 北大
                 {2024, 390, 60, 60, 95, 95}, {2023, 385, 60, 60, 90, 90},
                 {2022, 378, 55, 55, 90, 90}, {2021, 372, 55, 55, 85, 85},
-                // 复旦
                 {2024, 375, 60, 60, 90, 90}, {2023, 370, 60, 60, 90, 90},
                 {2022, 365, 55, 55, 85, 85}, {2021, 360, 55, 55, 85, 85},
-                // 浙大
                 {2024, 380, 60, 60, 95, 95}, {2023, 375, 55, 55, 90, 90},
                 {2022, 370, 55, 55, 90, 90}, {2021, 365, 55, 55, 85, 85},
-                // 武大
                 {2024, 365, 55, 55, 90, 90}, {2023, 360, 55, 55, 85, 85},
                 {2022, 355, 50, 50, 85, 85}, {2021, 350, 50, 50, 80, 80},
-                // 上交
                 {2024, 383, 60, 60, 95, 95}, {2023, 377, 60, 60, 90, 90},
                 {2022, 372, 55, 55, 90, 90}, {2021, 365, 55, 55, 85, 85},
-                // 华科
                 {2024, 360, 55, 55, 90, 90}, {2023, 355, 55, 55, 85, 85},
                 {2022, 350, 50, 50, 85, 85}, {2021, 345, 50, 50, 80, 80},
-                // 中大
                 {2024, 358, 55, 55, 85, 85}, {2023, 352, 50, 50, 85, 85},
                 {2022, 348, 50, 50, 80, 80}, {2021, 342, 50, 50, 80, 80},
-                // 川大
                 {2024, 355, 55, 55, 85, 85}, {2023, 350, 50, 50, 85, 85},
                 {2022, 345, 50, 50, 80, 80}, {2021, 340, 50, 50, 80, 80},
-                // 华师
                 {2024, 368, 55, 55, 90, 90}, {2023, 362, 55, 55, 85, 85},
                 {2022, 356, 50, 50, 85, 85}, {2021, 350, 50, 50, 80, 80},
         };
         String[] majors = {"计算机科学与技术", "软件工程", "电子信息", "会计学", "教育学", "心理学"};
         List<ScoreLine> lines = new ArrayList<>();
-        for (int i = 0; i < schools.size(); i++) {
-            School s = schools.get(i);
+        for (int i = 0; i < names.length; i++) {
+            School s = schoolRepository.findFirstByName(names[i]).orElse(null);
+            if (s == null) continue;
             int base = i * 4;
             for (int m = 0; m < 2; m++) {
                 int[] row = scores[base + m];
@@ -157,11 +230,12 @@ public class DataSeeder implements CommandLineRunner {
                 lines.add(line);
             }
         }
-        // 再补充几条非会员可见的公开数据
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < Math.min(4, names.length); i++) {
+            School s = schoolRepository.findFirstByName(names[i]).orElse(null);
+            if (s == null) continue;
             ScoreLine line = new ScoreLine();
-            line.setSchoolId(schools.get(i).getId());
-            line.setSchoolName(schools.get(i).getName());
+            line.setSchoolId(s.getId());
+            line.setSchoolName(s.getName());
             line.setYear(2024);
             line.setMajor("马克思主义理论");
             line.setLineType("国家线");
@@ -175,30 +249,164 @@ public class DataSeeder implements CommandLineRunner {
             lines.add(line);
         }
         scoreLineRepository.saveAll(lines);
+        log.info("演示院校分数线已写入 {} 条", lines.size());
     }
 
-    private School school(String name, String province, String city, String category, String level, String intro) {
-        School s = new School();
-        s.setName(name);
-        s.setProvince(province);
-        s.setCity(city);
-        s.setCategory(category);
-        s.setLevel(level);
-        s.setIntro(intro);
-        s.setStatus(1);
-        return s;
+    // ---------- 34 校中可解析为文本的复试线（如厦门大学 2025） ----------
+
+    private void seedSchoolTextLines() {
+        List<SchoolTextRow> rows = readSchoolTextLines();
+        if (rows.isEmpty()) {
+            return;
+        }
+        List<ScoreLine> pending = new ArrayList<>();
+        java.util.Set<String> handled = new java.util.HashSet<>();
+        for (SchoolTextRow row : rows) {
+            School school = schoolRepository.findFirstByName(row.school).orElse(null);
+            if (school == null) continue;
+            String key = school.getId() + "-" + row.year;
+            if (handled.add(key)) {
+                scoreLineRepository.deleteBySchoolIdAndYearAndLineType(school.getId(), row.year, "复试线");
+            }
+            ScoreLine line = new ScoreLine();
+            line.setSchoolId(school.getId());
+            line.setSchoolName(school.getName());
+            line.setYear(row.year);
+            line.setMajor(row.discipline);
+            line.setLineType("复试线");
+            line.setMinScore(row.total);
+            line.setPoliticalScore(row.oneHundred);
+            line.setMajorScore1(row.overHundred);
+            line.setPremium(true);
+            line.setRemark(row.note == null || row.note.isBlank() ? "官方公布的复试基本分数线（研招网）" : row.note);
+            pending.add(line);
+        }
+        scoreLineRepository.saveAll(pending);
+        if (!pending.isEmpty()) {
+            log.info("院校文本复试线已写入 {} 条", pending.size());
+        }
     }
+
+    private List<SchoolTextRow> readSchoolTextLines() {
+        List<SchoolTextRow> rows = new ArrayList<>();
+        try (Reader reader = new InputStreamReader(
+                Objects.requireNonNull(getClass().getResourceAsStream("/school-score-lines.csv")), StandardCharsets.UTF_8);
+             CSVParser parser = CSVFormat.DEFAULT.builder()
+                     .setHeader()
+                     .setSkipHeaderRecord(true)
+                     .setTrim(true)
+                     .build()
+                     .parse(reader)) {
+            for (CSVRecord rec : parser) {
+                SchoolTextRow row = new SchoolTextRow();
+                row.school = clean(rec.get("school"));
+                row.year = parseInt(rec.get("year"));
+                row.discipline = clean(rec.get("discipline"));
+                row.subjects = clean(rec.get("subjects"));
+                row.oneHundred = parseInt(rec.get("oneHundred"));
+                row.overHundred = parseInt(rec.get("overHundred"));
+                row.total = parseInt(rec.get("total"));
+                row.note = clean(rec.get("note"));
+                if (row.school != null && row.year != null && row.total != null) {
+                    rows.add(row);
+                }
+            }
+        } catch (Exception e) {
+            log.error("读取 school-score-lines.csv 失败", e);
+        }
+        return rows;
+    }
+
+    // ---------- 国家线 ----------
+
+    private void seedNationalLines() {
+        if (nationalLineRepository.count() > 0) {
+            return;
+        }
+        int saved = 0;
+        try (Reader reader = new InputStreamReader(
+                Objects.requireNonNull(getClass().getResourceAsStream("/national-lines.csv")), StandardCharsets.UTF_8);
+             CSVParser parser = CSVFormat.DEFAULT.builder()
+                     .setHeader()
+                     .setSkipHeaderRecord(true)
+                     .setTrim(true)
+                     .build()
+                     .parse(reader)) {
+            for (CSVRecord rec : parser) {
+                NationalLine line = new NationalLine();
+                line.setYear(parseInt(rec.get("year")));
+                line.setDiscipline(clean(rec.get("discipline")));
+                line.setSubjects(clean(rec.get("subjects")));
+                line.setTotalA(parseInt(rec.get("totalA")));
+                line.setOneA(parseInt(rec.get("oneA")));
+                line.setOverA(parseInt(rec.get("overA")));
+                line.setTotalB(parseInt(rec.get("totalB")));
+                line.setOneB(parseInt(rec.get("oneB")));
+                line.setOverB(parseInt(rec.get("overB")));
+                line.setNote(clean(rec.get("note")));
+                if (line.getYear() != null && line.getDiscipline() != null) {
+                    nationalLineRepository.save(line);
+                    saved++;
+                }
+            }
+        } catch (Exception e) {
+            log.error("读取 national-lines.csv 失败", e);
+        }
+        log.info("国家线已写入 {} 条（2024-2026）", saved);
+    }
+
+    // ---------- 34 校官方复试线图片来源 ----------
+
+    private void seedSchoolScoreSources() {
+        if (scoreSourceRepository.count() > 0) {
+            return;
+        }
+        int saved = 0;
+        try (Reader reader = new InputStreamReader(
+                Objects.requireNonNull(getClass().getResourceAsStream("/school-score-sources.csv")), StandardCharsets.UTF_8);
+             CSVParser parser = CSVFormat.DEFAULT.builder()
+                     .setHeader()
+                     .setSkipHeaderRecord(true)
+                     .setTrim(true)
+                     .build()
+                     .parse(reader)) {
+            int sort = 0;
+            for (CSVRecord rec : parser) {
+                String schoolName = clean(rec.get("school"));
+                School school = schoolName == null ? null : schoolRepository.findFirstByName(schoolName).orElse(null);
+                if (school == null) continue;
+                ScoreSource src = new ScoreSource();
+                src.setSchoolId(school.getId());
+                src.setSchoolName(school.getName());
+                src.setYear(parseInt(rec.get("year")));
+                src.setTitle(clean(rec.get("title")));
+                src.setImageUrl(clean(rec.get("imageUrl")));
+                src.setSourceUrl(clean(rec.get("sourceUrl")));
+                src.setSort(sort++);
+                scoreSourceRepository.save(src);
+                saved++;
+            }
+        } catch (Exception e) {
+            log.error("读取 school-score-sources.csv 失败", e);
+        }
+        log.info("34 校官方复试线图片来源已写入 {} 条", saved);
+    }
+
+    // ---------- 资讯 / 活动 ----------
 
     private void seedArticles() {
+        if (articleRepository.count() > 0) {
+            return;
+        }
         List<Article> articles = new ArrayList<>();
         articles.add(article("2026考研时间线全攻略：从报名到复试的每个节点",
                 "政策解读",
                 "为你梳理考研全程关键时间节点，避免错过任何重要环节。",
                 "<p>考研是一场持久战，明确每个阶段的任务至关重要。</p><h3>一、准备阶段（现在-9月）</h3><p>确定目标院校与专业，收集历年分数线、报录比等数据。</p><h3>二、报名阶段（9-10月）</h3><p>网上报名、确认信息，注意每个省的具体要求。</p><h3>三、初试阶段（12月）</h3><p>全国统一初试，考前一天踩点，带齐证件。</p><h3>四、复试调剂（次年3-4月）</h3><p>初试出分后及时准备复试，未达线可关注调剂信息。</p>"));
-        articles.add(article("2025年国家线深度解读：哪些专业在涨？哪些专业在降？",
+        articles.add(article("2026年国家线正式公布：多学科分数线一览",
                 "资讯",
-                "多专业国家线数据分析，帮你判断报考趋势。",
-                "<p>2025年国家线已经公布，整体呈现\"稳中有变\"的态势。</p><p>工学门类略有下降，管理类联考小幅上升，艺术类继续保持高位。</p><p>建议考生结合自身情况理性选择，不要盲目追逐热门。</p>"));
+                "教育部公布 2026 年全国硕士研究生招生考试考生进入复试的初试成绩基本要求。",
+                "<p>2026 年国家线已经公布，哲学 326 分、经济学 324 分、法学 321 分、文学 354 分、工学 264 分等。</p><p>管理类联考各专业继续单列分数线，工商管理 146 分、公共管理 168 分。</p><p>完整 A/B 类分数线可在本站「分数线」-「国家线」页面查看。</p>"));
         articles.add(article("上岸学姐经验谈：双非逆袭985的完整备考计划",
                 "备考经验",
                 "从择校到复试，一份可复制的逆袭路线图。",
@@ -230,6 +438,9 @@ public class DataSeeder implements CommandLineRunner {
     }
 
     private void seedActivities() {
+        if (activityRepository.count() > 0) {
+            return;
+        }
         List<Activity> activities = new ArrayList<>();
         activities.add(activity("新用户注册即送 3 天会员体验",
                 "即日起注册平台的用户，可免费领取3天全站数据会员，畅享各大高校历年分数线。",
@@ -251,5 +462,33 @@ public class DataSeeder implements CommandLineRunner {
         a.setEndTime(end);
         a.setStatus(1);
         return a;
+    }
+
+    // ---------- 工具 ----------
+
+    private String clean(String v) {
+        if (v == null) return null;
+        String s = v.trim();
+        return s.isEmpty() ? null : s;
+    }
+
+    private Integer parseInt(String v) {
+        if (v == null || v.isBlank()) return null;
+        try {
+            return Integer.parseInt(v.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static class SchoolTextRow {
+        String school;
+        Integer year;
+        String discipline;
+        String subjects;
+        Integer oneHundred;
+        Integer overHundred;
+        Integer total;
+        String note;
     }
 }

@@ -32,12 +32,14 @@
         <el-card class="card-hover" shadow="hover" @click="$router.push(`/schools/${s.id}`)">
           <div class="school-card">
             <div class="badges">
-              <el-tag size="small" type="danger" v-if="s.level.includes('985')">985</el-tag>
-              <el-tag size="small" type="warning" v-else-if="s.level.includes('211')">211</el-tag>
-              <el-tag size="small" type="success" v-else>普通</el-tag>
+              <el-tag size="small" type="danger" v-if="(s.level || '').includes('985')">985</el-tag>
+              <el-tag size="small" type="warning" v-else-if="(s.level || '').includes('211')">211</el-tag>
+              <el-tag size="small" type="success" v-else-if="(s.level || '').includes('双一流')">双一流</el-tag>
+              <el-tag size="small" type="info" v-else>{{ s.level || '普通' }}</el-tag>
             </div>
             <h3>{{ s.name }}</h3>
-            <p class="text-muted">{{ s.province }} · {{ s.city }} · {{ s.category }}</p>
+            <p class="text-muted">{{ s.province }} · {{ s.category }}</p>
+            <p v-if="s.dept" class="text-muted dept">主管部门：{{ s.dept }}</p>
           </div>
         </el-card>
       </el-col>
@@ -60,9 +62,9 @@
 import { onMounted, reactive, ref } from 'vue'
 import { publicApi } from '../../api'
 
-const provinces = ['北京', '上海', '湖北', '浙江', '广东', '四川', '江苏', '陕西', '湖南', '天津']
-const categories = ['综合', '理工', '师范', '医药', '财经', '农林', '政法', '艺术', '语言', '民族']
-const levels = ['985/211/双一流', '211/双一流', '双一流', '普通本科']
+const provinces = ref([])
+const categories = ref([])
+const levels = ref([])
 
 const query = reactive({ name: '', province: '', category: '', level: '', page: 1, size: 12 })
 const list = ref([])
@@ -80,6 +82,20 @@ async function load() {
   }
 }
 
+async function loadFilters() {
+  try {
+    const data = await publicApi.filters()
+    provinces.value = data.provinces || []
+    categories.value = data.categories || []
+    levels.value = data.levels || []
+  } catch (e) {
+    // 兜底：接口失败时使用常用选项
+    provinces.value = ['北京', '上海', '湖北', '浙江', '广东', '四川', '江苏', '陕西', '湖南', '天津']
+    categories.value = ['综合', '理工', '师范', '医药', '财经', '农林', '政法', '艺术', '语言', '民族', '体育', '军事']
+    levels.value = ['985/211/双一流', '双一流']
+  }
+}
+
 function search() {
   query.page = 1
   load()
@@ -90,7 +106,10 @@ function onPage(p) {
   load()
 }
 
-onMounted(load)
+onMounted(() => {
+  loadFilters()
+  load()
+})
 </script>
 
 <style scoped>
@@ -102,6 +121,11 @@ onMounted(load)
 .school-card p {
   margin: 0;
   font-size: 13px;
+}
+
+.school-card .dept {
+  margin-top: 6px;
+  font-size: 12px;
 }
 
 .pager {

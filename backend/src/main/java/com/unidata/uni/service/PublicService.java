@@ -5,13 +5,17 @@ import com.unidata.uni.dto.PageResult;
 import com.unidata.uni.dto.ScoreLineView;
 import com.unidata.uni.entity.Activity;
 import com.unidata.uni.entity.Article;
+import com.unidata.uni.entity.NationalLine;
 import com.unidata.uni.entity.School;
 import com.unidata.uni.entity.ScoreLine;
+import com.unidata.uni.entity.ScoreSource;
 import com.unidata.uni.entity.User;
 import com.unidata.uni.repository.ActivityRepository;
 import com.unidata.uni.repository.ArticleRepository;
+import com.unidata.uni.repository.NationalLineRepository;
 import com.unidata.uni.repository.SchoolRepository;
 import com.unidata.uni.repository.ScoreLineRepository;
+import com.unidata.uni.repository.ScoreSourceRepository;
 import com.unidata.uni.repository.UserRepository;
 import com.unidata.uni.security.CurrentUser;
 import org.springframework.data.domain.Page;
@@ -22,6 +26,7 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class PublicService {
@@ -31,17 +36,23 @@ public class PublicService {
     private final ArticleRepository articleRepository;
     private final ActivityRepository activityRepository;
     private final UserRepository userRepository;
+    private final NationalLineRepository nationalLineRepository;
+    private final ScoreSourceRepository scoreSourceRepository;
 
     public PublicService(SchoolRepository schoolRepository,
                          ScoreLineRepository scoreLineRepository,
                          ArticleRepository articleRepository,
                          ActivityRepository activityRepository,
-                         UserRepository userRepository) {
+                         UserRepository userRepository,
+                         NationalLineRepository nationalLineRepository,
+                         ScoreSourceRepository scoreSourceRepository) {
         this.schoolRepository = schoolRepository;
         this.scoreLineRepository = scoreLineRepository;
         this.articleRepository = articleRepository;
         this.activityRepository = activityRepository;
         this.userRepository = userRepository;
+        this.nationalLineRepository = nationalLineRepository;
+        this.scoreSourceRepository = scoreSourceRepository;
     }
 
     public PageResult<School> schools(String name, String province, String category, String level, int page, int size) {
@@ -98,7 +109,30 @@ public class PublicService {
         detail.put("school", school);
         detail.put("scoreLines", lines);
         detail.put("years", scoreLineRepository.findDistinctYears());
+        detail.put("scoreSources", scoreSourceRepository.findBySchoolIdOrderByYearDescSortAsc(id));
         return detail;
+    }
+
+    public List<NationalLine> nationalLines(Integer year) {
+        if (year != null) {
+            return nationalLineRepository.findByYearOrderByIdAsc(year);
+        }
+        return nationalLineRepository.findAllByOrderByYearDescIdAsc();
+    }
+
+    public Map<String, Object> filters() {
+        List<School> all = schoolRepository.findAll();
+        Map<String, Object> filters = new HashMap<>();
+        filters.put("provinces", all.stream().map(School::getProvince)
+                .filter(Objects::nonNull).filter(s -> !s.isBlank())
+                .distinct().sorted().toList());
+        filters.put("categories", all.stream().map(School::getCategory)
+                .filter(Objects::nonNull).filter(s -> !s.isBlank())
+                .distinct().sorted().toList());
+        filters.put("levels", all.stream().map(School::getLevel)
+                .filter(Objects::nonNull).filter(s -> !s.isBlank())
+                .distinct().sorted().toList());
+        return filters;
     }
 
     public PageResult<ScoreLineView> scoreLines(Long schoolId, Integer year, String major, int page, int size) {
