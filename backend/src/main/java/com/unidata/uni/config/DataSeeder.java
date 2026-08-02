@@ -30,7 +30,9 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -238,48 +240,94 @@ public class DataSeeder implements CommandLineRunner {
         }
     }
 
-    /** 每所院校补充全学科门类国家线参考记录（2025/2026），保证院校详情页与厦门大学一样具备完整学科数据 */
+    /** 工学门类（08 代码）一级学科清单：CARE=国家线照顾专业，NORMAL=普通工学 */
+    private static final String[][] ENGINEERING_DISCIPLINES = {
+            {"0801", "力学", "CARE"},
+            {"0802", "机械工程", "NORMAL"},
+            {"0803", "光学工程", "NORMAL"},
+            {"0804", "仪器科学与技术", "NORMAL"},
+            {"0805", "材料科学与工程", "NORMAL"},
+            {"0806", "冶金工程", "CARE"},
+            {"0807", "动力工程及工程热物理", "CARE"},
+            {"0808", "电气工程", "NORMAL"},
+            {"0809", "电子科学与技术", "NORMAL"},
+            {"0810", "信息与通信工程", "NORMAL"},
+            {"0811", "控制科学与工程", "NORMAL"},
+            {"0812", "计算机科学与技术", "NORMAL"},
+            {"0813", "建筑学", "NORMAL"},
+            {"0814", "土木工程", "NORMAL"},
+            {"0815", "水利工程", "CARE"},
+            {"0816", "测绘科学与技术", "NORMAL"},
+            {"0817", "化学工程与技术", "NORMAL"},
+            {"0818", "地质资源与地质工程", "CARE"},
+            {"0819", "矿业工程", "CARE"},
+            {"0820", "石油与天然气工程", "NORMAL"},
+            {"0821", "纺织科学与工程", "NORMAL"},
+            {"0822", "轻工技术与工程", "NORMAL"},
+            {"0823", "交通运输工程", "NORMAL"},
+            {"0824", "船舶与海洋工程", "CARE"},
+            {"0825", "航空宇航科学与技术", "CARE"},
+            {"0826", "兵器科学与技术", "CARE"},
+            {"0827", "核科学与技术", "CARE"},
+            {"0828", "农业工程", "CARE"},
+            {"0829", "林业工程", "NORMAL"},
+            {"0830", "环境科学与工程", "NORMAL"},
+            {"0831", "生物医学工程", "NORMAL"},
+            {"0832", "食品科学与工程", "NORMAL"},
+            {"0833", "城乡规划学", "NORMAL"},
+            {"0835", "软件工程", "NORMAL"},
+            {"0836", "生物工程", "NORMAL"},
+            {"0837", "安全科学与工程", "NORMAL"},
+            {"0838", "公安技术", "NORMAL"},
+            {"0839", "网络空间安全", "NORMAL"},
+    };
+
+    /** 每所院校补充"工学门类（08 代码）一级学科"国家线参考记录（2025/2026） */
     private void seedSchoolNationalReference() {
         // 重建式写入：先清除所有"国家线参考"记录（仅限平台生成的参考行，不影响各校真实复试线）
         long deleted = scoreLineRepository.deleteByLineTypeAndRemarkContaining("国家线", "国家线参考");
-        List<NationalLine> refs = nationalLineRepository.findAllByOrderByYearDescIdAsc();
+        // 读取工学门类国家线：照顾专业 / 其他学科专业
+        Map<Integer, NationalLine> careByYear = new HashMap<>();
+        Map<Integer, NationalLine> normalByYear = new HashMap<>();
+        for (NationalLine nl : nationalLineRepository.findByDisciplineContainingOrderByYearDesc("工学")) {
+            if (nl.getYear() == null || nl.getYear() < 2025) {
+                continue;
+            }
+            if (nl.getDiscipline().contains("其他")) {
+                normalByYear.put(nl.getYear(), nl);
+            } else {
+                careByYear.put(nl.getYear(), nl);
+            }
+        }
         List<ScoreLine> pending = new ArrayList<>();
         for (School school : schoolRepository.findAll()) {
-            for (NationalLine nl : refs) {
-                if (nl.getYear() == null || nl.getYear() < 2025) {
-                    continue;
+            for (String[] d : ENGINEERING_DISCIPLINES) {
+                for (Integer year : List.of(2026, 2025)) {
+                    NationalLine src = "CARE".equals(d[2]) ? careByYear.get(year) : normalByYear.get(year);
+                    if (src == null) {
+                        continue;
+                    }
+                    ScoreLine line = new ScoreLine();
+                    line.setSchoolId(school.getId());
+                    line.setSchoolName(school.getName());
+                    line.setYear(year);
+                    line.setMajor(d[1] + "（" + d[0] + "）");
+                    line.setLineType("国家线");
+                    line.setMinScore(src.getTotalA());
+                    line.setPoliticalScore(src.getOneA());
+                    line.setForeignScore(src.getOverA());
+                    line.setPremium(false);
+                    line.setRemark("工学门类（08）国家线参考（A类 总分" + src.getTotalA()
+                            + "/单科" + src.getOneA() + "/" + src.getOverA() + "），以官方公布为准");
+                    pending.add(line);
                 }
-                if (nl.getDiscipline() == null || nl.getDiscipline().isBlank()) {
-                    continue;
-                }
-                ScoreLine line = new ScoreLine();
-                line.setSchoolId(school.getId());
-                line.setSchoolName(school.getName());
-                line.setYear(nl.getYear());
-                line.setMajor(nl.getDiscipline());
-                line.setLineType("国家线");
-                line.setMinScore(nl.getTotalA());
-                line.setPoliticalScore(nl.getOneA());
-                line.setForeignScore(nl.getOverA());
-                line.setPremium(false);
-                boolean isComputerEngineering = nl.getDiscipline().startsWith("工学")
-                        && nl.getDiscipline().contains("其他");
-                String remark = isComputerEngineering
-                        ? "计算机相关学科（工学门类）A类国家线参考，以官方公布为准"
-                        : "国家线参考，以官方公布为准";
-                if (nl.getSubjects() != null && !nl.getSubjects().isBlank()
-                        && !"各学科专业".equals(nl.getSubjects())) {
-                    remark += "（" + nl.getSubjects() + "）";
-                }
-                line.setRemark(remark);
-                pending.add(line);
             }
         }
         if (!pending.isEmpty()) {
             scoreLineRepository.saveAll(pending);
         }
-        log.info("院校全学科国家线参考重建完成：删除 {} 条，写入 {} 条（{} 所院校 × 2 年）",
-                deleted, pending.size(), schoolRepository.count());
+        log.info("院校工学一级学科国家线参考重建完成：删除 {} 条，写入 {} 条（{} 所院校 × {} 个一级学科 × 2 年）",
+                deleted, pending.size(), schoolRepository.count(), ENGINEERING_DISCIPLINES.length);
     }
 
     private List<SchoolTextRow> readSchoolTextLines() {

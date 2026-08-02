@@ -48,9 +48,9 @@
 
       <div class="section-title" style="font-size: 18px">历年复试分数线</div>
       <el-alert v-if="hasRealLines" type="success" :closable="false" show-icon style="margin-bottom: 14px"
-        title="已收录该校单独复试线；页面同时提供各学科门类国家线参考，请以官方公布为准" />
+        title="已收录该校单独复试线；页面同时提供工学门类（08 代码）一级学科国家线参考，请以官方公布为准" />
       <el-alert v-else type="info" :closable="false" show-icon style="margin-bottom: 14px"
-        title="该校单独复试线暂未收录，以下为各学科门类国家线参考（哲学/经济学/法学/工学等），具体以该校官方公布为准" />
+        title="该校单独复试线暂未收录，以下为工学门类（08 代码）一级学科国家线参考（计算机科学与技术、软件工程、电子信息等），具体以该校官方公布为准" />
       <el-table :data="scoreLines" border stripe>
         <el-table-column prop="year" label="年份" width="80" />
         <el-table-column label="专业" min-width="170">
